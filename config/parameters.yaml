@@ -1,0 +1,83 @@
+# BTC-Premia Analysis Parameters
+# Configuration file for all analysis parameters
+
+# Data filtering parameters
+data_filtering:
+  min_option_price: 10.0          # Minimum option price in USD
+  min_btc_price: 1500.0          # Minimum BTC price in USD
+  min_tau: 0.0                   # Minimum time to maturity in days
+  max_tau: 120                   # Maximum time to maturity in days
+  min_moneyness: -1.0            # Minimum log-moneyness
+  max_moneyness: 1.0             # Maximum log-moneyness
+
+# SVI model parameters
+svi:
+  max_iterations: 4              # Maximum optimization iterations
+  min_r2_threshold: 0.97         # Minimum R² for SVI fit acceptance
+  optimization_attempts: 10      # Number of optimization attempts per iteration
+  
+  # Parameter bounds: [lower, upper]
+  bounds:
+    a: [-4, 4]                   # Level parameter
+    b: [-50, 18]                 # Angle parameter
+    rho: [-2, 2]                 # Skew parameter
+    m: [-2, 2]                   # Shift parameter
+    sigma: [-0.5, 1]             # Volatility of volatility
+    a_ttm: [-50, 50]             # TTM coefficient for a
+    b_ttm: [-50, 50]             # TTM coefficient for b
+    rho_ttm: [-2, 2]             # TTM coefficient for rho
+    m_ttm: [-2, 2]               # TTM coefficient for m
+    sigma_ttm: [-2, 0.5]         # TTM coefficient for sigma
+
+# Time to maturity values for analysis
+ttm_values:
+  main_analysis: [5, 9, 14, 27, 45]  # Main TTM values for analysis
+  clustering: [5, 9, 14, 27]         # TTM values used for clustering
+  full_range: [3, 120]               # Full range for estimation
+
+# Return grids
+return_grids:
+  full_grid:
+    min: -1.0
+    max: 1.0
+    step: 0.01
+  narrow_grid:
+    min: -0.15
+    max: 0.15
+    step: 0.01
+
+# Clustering parameters
+clustering:
+  method: "ward"                 # Linkage method for hierarchical clustering
+  height_threshold: 35           # Height threshold for cutting dendrogram
+  n_clusters: 2                  # Number of clusters
+  distance_metric: "euclidean"   # Distance metric
+
+# Risk premium analysis
+risk_analysis:
+  shadow_regions:
+    negative: [-0.6, -0.2]       # Negative shadow region for BP analysis
+    positive: [0.2, 0.6]         # Positive shadow region for BP analysis
+  
+  lower_bounds:
+    risk_free_rate: 1.0          # Gross risk-free rate
+    tau_initial: 0.97            # Initial risk tolerance parameter
+    rho_initial: 2.32            # Initial skewness preference parameter
+    kappa_initial: 3.50          # Initial kurtosis preference parameter
+
+# P-density estimation (KDE parameters)
+p_density:
+  bandwidth_range: [1, 50]       # Range of bandwidths to test
+  bandwidth_step: 1              # Step size for bandwidth search
+  kernel: "gaussian"             # Kernel type for KDE
+
+# Parallel processing
+parallel:
+  n_jobs: -2                     # Number of cores (-1 = all, -2 = all but one)
+  backend: "threading"           # Parallel backend
+
+# Output settings
+output:
+  float_format: "%.4f"           # Float formatting for CSV output
+  figure_dpi: 300                # DPI for saved figures
+  figure_format: "png"           # Figure format 
