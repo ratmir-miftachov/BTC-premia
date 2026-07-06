@@ -72,7 +72,6 @@ High-level stages:
 - Stochastic scripts expose deterministic seeds where currently supported. Use `--seed` for `svi_tau_dependent_estimation.py` and `BTC_PREMIA_RANDOM_SEED` for UMAP plots.
 - Generated Python outputs can write JSON provenance sidecars with input hashes, parameters, Python version, platform, and package versions.
 - MATLAB scripts are preserved as paper-analysis scripts. Some still expect historical folder names and should be run manually with the required data layout.
-- The conservative cleanup removed only an empty, unreferenced placeholder file from `docs/`.
 
 ## Smoke Tests
 
