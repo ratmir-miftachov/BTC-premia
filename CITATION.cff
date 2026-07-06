@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated paper."
+title: "Risk Premia in the Bitcoin Market"
+authors:
+  - family-names: "Almeida"
+    given-names: "Caio"
+  - family-names: "Grith"
+    given-names: "Maria"
+  - family-names: "Miftachov"
+    given-names: "Ratmir"
+  - family-names: "Wang"
+    given-names: "Zijin"
+repository-code: "https://github.com/ratmir-miftachov/BTC-premia"
+preferred-citation:
+  type: article
+  title: "Risk Premia in the Bitcoin Market"
+  authors:
+    - family-names: "Almeida"
+      given-names: "Caio"
+    - family-names: "Grith"
+      given-names: "Maria"
+    - family-names: "Miftachov"
+      given-names: "Ratmir"
+    - family-names: "Wang"
+      given-names: "Zijin"
+  year: 2024
+  url: "https://arxiv.org/abs/2410.15195"
+  identifiers:
+    - type: other
+      value: "arXiv:2410.15195"
+      description: "arXiv identifier"

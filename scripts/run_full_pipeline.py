@@ -1,166 +1,329 @@
 #!/usr/bin/env python3
-"""
-BTC-Premia Analysis Master Pipeline
+"""Truthful orchestration helper for the BTC-premia analysis workflow.
 
-This script runs the complete analysis pipeline from raw data to final results.
+The repository contains research scripts from multiple stages of the paper.
+This command documents and validates those stages; it does not pretend that
+manual MATLAB scripts or missing private data have run successfully.
 """
 
-import os
-import sys
-import logging
+from __future__ import annotations
+
 import argparse
-import pandas as pd
+import logging
+import subprocess
+import sys
+from dataclasses import dataclass
 from pathlib import Path
-from datetime import datetime
+from typing import Iterable
 
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
 
 from utils.data_utils import DataPaths, load_config
-from utils.math_utils import *
 
 
-def setup_logging(log_level: str = "INFO") -> None:
-    """Set up logging configuration."""
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+@dataclass(frozen=True)
+class StepSpec:
+    """Metadata for one externally visible pipeline step."""
+
+    name: str
+    title: str
+    status: str
+    description: str
+    scripts: tuple[str, ...]
+    required_paths: tuple[str, ...] = ()
+    automated: bool = False
+    commands: tuple[tuple[str, ...], ...] = ()
+
+
+STEP_ORDER = ("validate", "iv", "q_density", "clustering", "risk", "bvix", "viz")
+
+STEP_SPECS: dict[str, StepSpec] = {
+    "validate": StepSpec(
+        name="validate",
+        title="Reproducibility contract validation",
+        status="automated",
+        description=(
+            "Validate Python version, optional tool availability, and the data manifest. "
+            "Missing private data is reported but not fatal unless check_reproducibility.py "
+            "is run with --strict."
+        ),
+        scripts=("scripts/check_reproducibility.py", "config/data_manifest.yaml"),
+        automated=True,
+        commands=(
+            (
+                "{python}",
+                "scripts/check_reproducibility.py",
+                "--manifest",
+                "config/data_manifest.yaml",
+                "--base-path",
+                "{base_path}",
+            ),
+        ),
+    ),
+    "iv": StepSpec(
+        name="iv",
+        title="Implied volatility estimation",
+        status="blocked-data",
+        description=(
+            "SVI estimation and IV-surface construction are Python scripts, "
+            "but they require ignored option/IV matrix inputs."
+        ),
+        scripts=(
+            "src/02_iv_estimation/svi_tau_dependent_estimation.py",
+            "src/02_iv_estimation/iv_surface_analysis.py",
+            "src/02_iv_estimation/linear_ttm_interpolation.py",
+            "src/02_iv_estimation/svi_surface_construction.py",
+        ),
+        required_paths=("data/iv_matrices/IR0", "SVI/v1"),
+    ),
+    "q_density": StepSpec(
+        name="q_density",
+        title="Risk-neutral density estimation",
+        status="blocked-data-r",
+        description=(
+            "Q-density estimation requires generated IV surfaces, interest-rate "
+            "data, and the external R routine referenced by the Python script."
+        ),
+        scripts=(
+            "src/03_q_density/q_density_estimation.py",
+            "src/03_q_density/q_density_filtering_parallel.py",
+        ),
+        required_paths=(
+            "IV/IV_surface_SVI/Tau-independent/unique/moneyness_step_0d01",
+            "Data/IR_daily.csv",
+            "src/Q_from_IV.R",
+        ),
+    ),
+    "clustering": StepSpec(
+        name="clustering",
+        title="Market regime clustering",
+        status="blocked-data",
+        description="Clustering requires precomputed Q matrices for several maturities.",
+        scripts=(
+            "src/04_clustering/market_regime_clustering.py",
+            "src/04_clustering/dimensionality_reduction_umap.py",
+        ),
+        required_paths=("Q_matrix/Tau-independent/unique/moneyness_step_0d01",),
+    ),
+    "risk": StepSpec(
+        name="risk",
+        title="Risk-premium analysis",
+        status="manual-matlab-and-python",
+        description=(
+            "Risk-premium figures and decompositions are split across MATLAB "
+            "paper scripts and a Python lower-bound script."
+        ),
+        scripts=(
+            "src/05_risk_analysis/theoretical_lower_bounds.py",
+            "src/05_risk_analysis/bitcoin_premium_main_analysis.m",
+            "src/05_risk_analysis/variance_risk_premium_analysis.m",
+            "src/05_risk_analysis/pricing_kernel_analysis.m",
+            "src/05_risk_analysis/market_state_analysis.m",
+        ),
+        required_paths=(
+            "Q_matrix/Tau-independent/unique/moneyness_step_0d01",
+            "RiskPremia/Tau-independent/unique/moneyness_step_0d01",
+            "Data/BTC_USD_Quandl_2011_2023.csv",
+        ),
+    ),
+    "bvix": StepSpec(
+        name="bvix",
+        title="Bitcoin volatility index",
+        status="blocked-data",
+        description="BVIX calculation requires ignored option quote files and DVOL data.",
+        scripts=("src/06_volatility/bvix_calculation.py",),
+        required_paths=("data/bvix/ttm27_new", "Data/deribit-metrics_new.csv"),
+    ),
+    "viz": StepSpec(
+        name="viz",
+        title="Visualization",
+        status="manual-mixed",
+        description=(
+            "Visualization scripts consume generated intermediate files and include "
+            "both Python and MATLAB scripts."
+        ),
+        scripts=(
+            "src/07_visualization/q_density_iv_combined_plots.py",
+            "src/07_visualization/q_density_iv_grid_plots.py",
+            "src/07_visualization/r2_tau_date_plotting.py",
+            "src/07_visualization/r2_timeseries_plotting.py",
+            "src/07_visualization/*.m",
+        ),
+        required_paths=("results",),
+    ),
+}
+
+
+def setup_logging(log_level: str) -> None:
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(f'analysis_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
-            logging.StreamHandler()
-        ]
+        format="%(levelname)s: %(message)s",
+        handlers=[logging.StreamHandler()],
     )
 
 
-def run_iv_estimation(config: dict, paths: DataPaths) -> None:
-    """Run implied volatility estimation pipeline."""
-    logging.info("Starting IV estimation...")
-    
-    logging.info("Estimating SVI parameters...")
-    
-    logging.info("Constructing IV surfaces...")
-    
-    logging.info("IV estimation completed.")
+def expand_steps(steps: Iterable[str]) -> list[str]:
+    selected = list(steps)
+    if "all" in selected:
+        return list(STEP_ORDER)
+    return selected
 
 
-def run_q_density_estimation(config: dict, paths: DataPaths) -> None:
-    """Run Q-density estimation pipeline."""
-    logging.info("Starting Q-density estimation...")
-    
-    for ttm in config['ttm_values']['main_analysis']:
-        logging.info(f"Estimating Q-densities for TTM={ttm}...")
-    
-    logging.info("Q-density estimation completed.")
+def missing_paths(base_path: Path, step: StepSpec) -> list[Path]:
+    return [base_path / path for path in step.required_paths if not (base_path / path).exists()]
 
 
-def run_clustering_analysis(config: dict, paths: DataPaths) -> None:
-    """Run clustering analysis to identify market regimes."""
-    logging.info("Starting clustering analysis...")
-    
-    q_matrices = {}
-    for ttm in config['ttm_values']['clustering']:
-        matrix_file = paths.q_densities_dir / f"Q_matrix_{ttm}day_0d15.csv"
-        if matrix_file.exists():
-            q_matrices[ttm] = pd.read_csv(matrix_file)
-    
-    logging.info("Clustering analysis completed.")
-    return {}
+def format_step(step: StepSpec, base_path: Path) -> str:
+    missing = missing_paths(base_path, step)
+    script_list = ", ".join(step.scripts)
+    command_list = ""
+    if step.commands:
+        rendered = [" ".join(format_command(command, base_path)) for command in step.commands]
+        command_list = "\n  commands: " + " && ".join(rendered)
+    if missing:
+        missing_list = "; missing: " + ", ".join(str(path) for path in missing)
+    else:
+        missing_list = ""
+    return (
+        f"{step.name}: {step.title}\n"
+        f"  status: {step.status}\n"
+        f"  scripts: {script_list}\n"
+        f"  note: {step.description}{missing_list}"
+        f"{command_list}"
+    )
 
 
-def run_risk_analysis(config: dict, paths: DataPaths, cluster_results: dict) -> None:
-    """Run risk premium analysis."""
-    logging.info("Starting risk premium analysis...")
-    
-    logging.info("Calculating theoretical lower bounds...")
-    
-    logging.info("Calculating Bitcoin premiums...")
-    
-    logging.info("Calculating variance risk premiums...")
-    
-    logging.info("Risk premium analysis completed.")
+def print_steps(steps: Iterable[str], base_path: Path) -> None:
+    for name in expand_steps(steps):
+        print(format_step(STEP_SPECS[name], base_path))
 
 
-def run_bvix_calculation(config: dict, paths: DataPaths) -> None:
-    """Run BVIX calculation."""
-    logging.info("Starting BVIX calculation...")
-    
-    logging.info("BVIX calculation completed.")
+def validate_config(config_path: Path) -> None:
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    load_config(str(config_path))
 
 
-def generate_visualizations(config: dict, paths: DataPaths) -> None:
-    """Generate all visualizations and plots."""
-    logging.info("Starting visualization generation...")
-    
-    os.makedirs(paths.figures_dir, exist_ok=True)
-    
-    logging.info("Creating IV plots...")
-    
-    logging.info("Creating density plots...")
-    
-    logging.info("Creating risk premium plots...")
-    
-    logging.info("Visualization generation completed.")
+def format_command(command: tuple[str, ...], base_path: Path) -> list[str]:
+    return [
+        part.format(python=sys.executable, base_path=str(base_path))
+        for part in command
+    ]
 
 
-def main():
-    """Main pipeline execution."""
-    parser = argparse.ArgumentParser(description="Run BTC-Premia Analysis Pipeline")
-    parser.add_argument("--config", default="config/parameters.yaml", 
-                       help="Configuration file path")
-    parser.add_argument("--steps", nargs="+", 
-                       choices=["iv", "q_density", "clustering", "risk", "bvix", "viz", "all"],
-                       default=["all"], 
-                       help="Pipeline steps to run")
-    parser.add_argument("--log-level", default="INFO", 
-                       choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                       help="Logging level")
-    
-    args = parser.parse_args()
-    
+def run_automated_step(step: StepSpec, base_path: Path) -> None:
+    for command in step.commands:
+        rendered = format_command(command, base_path)
+        logging.info("Running %s", " ".join(rendered))
+        subprocess.run(rendered, cwd=REPO_ROOT, check=True)
+
+
+def run_selected_steps(step_names: list[str], base_path: Path) -> int:
+    non_automated = []
+    blocked = []
+    ran_automated = False
+
+    for name in step_names:
+        step = STEP_SPECS[name]
+        missing = missing_paths(base_path, step)
+        if missing:
+            blocked.append((step, missing))
+        if not step.automated:
+            non_automated.append(step)
+        elif not missing:
+            try:
+                run_automated_step(step, base_path)
+                ran_automated = True
+            except subprocess.CalledProcessError as exc:
+                logging.error("%s failed with exit code %s", step.name, exc.returncode)
+                return exc.returncode
+
+    for step, paths in blocked:
+        logging.error("%s is blocked by missing inputs:", step.name)
+        for path in paths:
+            logging.error("  %s", path)
+
+    if non_automated:
+        logging.error("No selected step is currently executed automatically.")
+        logging.error("Use --dry-run or --list-steps to inspect the workflow map.")
+        for step in non_automated:
+            logging.error("%s remains %s: %s", step.name, step.status, step.description)
+        return 1
+
+    if blocked:
+        return 1
+    if ran_automated:
+        logging.info("Automated selected steps completed.")
+        return 0
+
+    logging.info("No runnable steps were selected.")
+    return 0
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Inspect the BTC-premia analysis workflow")
+    parser.add_argument(
+        "--config",
+        default="config/parameters.yaml",
+        help="Configuration file path, relative to --base-path unless absolute.",
+    )
+    parser.add_argument(
+        "--steps",
+        nargs="+",
+        choices=[*STEP_ORDER, "all"],
+        default=["all"],
+        help="Pipeline steps to inspect or run.",
+    )
+    parser.add_argument(
+        "--base-path",
+        default=str(REPO_ROOT),
+        help="Repository or external data base path. Defaults to this checkout.",
+    )
+    parser.add_argument(
+        "--list-steps",
+        action="store_true",
+        help="Print the known workflow stages and exit.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print selected stages, inputs, and current status without running anything.",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level.",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
     setup_logging(args.log_level)
-    config = load_config(args.config)
-    paths = DataPaths()
-    
-    for path in [paths.data_dir, paths.iv_surfaces_dir, paths.q_densities_dir, 
-                 paths.clusters_dir, paths.risk_premia_dir, paths.results_dir]:
-        os.makedirs(path, exist_ok=True)
-    
-    logging.info("Starting BTC-Premia Analysis Pipeline")
-    logging.info(f"Configuration: {args.config}")
-    logging.info(f"Steps to run: {args.steps}")
-    
-    cluster_results = None
-    
-    try:
-        run_all = "all" in args.steps
-        
-        if run_all or "iv" in args.steps:
-            run_iv_estimation(config, paths)
-        
-        if run_all or "q_density" in args.steps:
-            run_q_density_estimation(config, paths)
-        
-        if run_all or "clustering" in args.steps:
-            cluster_results = run_clustering_analysis(config, paths)
-        
-        if run_all or "risk" in args.steps:
-            if cluster_results is None:
-                cluster_file = paths.clusters_dir / "cluster_results.csv"
-                if cluster_file.exists():
-                    cluster_results = pd.read_csv(cluster_file)
-            run_risk_analysis(config, paths, cluster_results)
-        
-        if run_all or "bvix" in args.steps:
-            run_bvix_calculation(config, paths)
-        
-        if run_all or "viz" in args.steps:
-            generate_visualizations(config, paths)
-        
-        logging.info("Pipeline completed successfully!")
-        
-    except Exception as e:
-        logging.error(f"Pipeline failed with error: {e}", exc_info=True)
-        sys.exit(1)
+
+    base_path = Path(args.base_path).expanduser().resolve()
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = base_path / config_path
+
+    validate_config(config_path)
+    selected_steps = expand_steps(args.steps)
+    paths = DataPaths(base_path)
+
+    logging.debug("Base path: %s", paths.base_path)
+    logging.debug("Config: %s", config_path)
+
+    if args.list_steps or args.dry_run:
+        print_steps(selected_steps, base_path)
+        return 0
+
+    logging.info("Requested BTC-premia steps: %s", ", ".join(selected_steps))
+    return run_selected_steps(selected_steps, base_path)
 
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main())

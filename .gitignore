@@ -58,6 +58,7 @@ dmypy.json
 *.hdf5
 *.pkl
 *.pickle
+!tests/fixtures/**/*.csv
 
 # Logs
 *.log
@@ -75,4 +76,4 @@ Thumbs.db
 # Temporary Files
 *.tmp
 *.temp
-.cache/ 
+.cache/
