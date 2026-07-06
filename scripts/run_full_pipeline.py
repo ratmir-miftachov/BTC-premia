@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,11 +35,34 @@ class StepSpec:
     scripts: tuple[str, ...]
     required_paths: tuple[str, ...] = ()
     automated: bool = False
+    commands: tuple[tuple[str, ...], ...] = ()
 
 
-STEP_ORDER = ("iv", "q_density", "clustering", "risk", "bvix", "viz")
+STEP_ORDER = ("validate", "iv", "q_density", "clustering", "risk", "bvix", "viz")
 
 STEP_SPECS: dict[str, StepSpec] = {
+    "validate": StepSpec(
+        name="validate",
+        title="Reproducibility contract validation",
+        status="automated",
+        description=(
+            "Validate Python version, optional tool availability, and the data manifest. "
+            "Missing private data is reported but not fatal unless check_reproducibility.py "
+            "is run with --strict."
+        ),
+        scripts=("scripts/check_reproducibility.py", "config/data_manifest.yaml"),
+        automated=True,
+        commands=(
+            (
+                "{python}",
+                "scripts/check_reproducibility.py",
+                "--manifest",
+                "config/data_manifest.yaml",
+                "--base-path",
+                "{base_path}",
+            ),
+        ),
+    ),
     "iv": StepSpec(
         name="iv",
         title="Implied volatility estimation",
@@ -155,6 +179,10 @@ def missing_paths(base_path: Path, step: StepSpec) -> list[Path]:
 def format_step(step: StepSpec, base_path: Path) -> str:
     missing = missing_paths(base_path, step)
     script_list = ", ".join(step.scripts)
+    command_list = ""
+    if step.commands:
+        rendered = [" ".join(format_command(command, base_path)) for command in step.commands]
+        command_list = "\n  commands: " + " && ".join(rendered)
     if missing:
         missing_list = "; missing: " + ", ".join(str(path) for path in missing)
     else:
@@ -164,6 +192,7 @@ def format_step(step: StepSpec, base_path: Path) -> str:
         f"  status: {step.status}\n"
         f"  scripts: {script_list}\n"
         f"  note: {step.description}{missing_list}"
+        f"{command_list}"
     )
 
 
@@ -178,9 +207,24 @@ def validate_config(config_path: Path) -> None:
     load_config(str(config_path))
 
 
+def format_command(command: tuple[str, ...], base_path: Path) -> list[str]:
+    return [
+        part.format(python=sys.executable, base_path=str(base_path))
+        for part in command
+    ]
+
+
+def run_automated_step(step: StepSpec, base_path: Path) -> None:
+    for command in step.commands:
+        rendered = format_command(command, base_path)
+        logging.info("Running %s", " ".join(rendered))
+        subprocess.run(rendered, cwd=REPO_ROOT, check=True)
+
+
 def run_selected_steps(step_names: list[str], base_path: Path) -> int:
     non_automated = []
     blocked = []
+    ran_automated = False
 
     for name in step_names:
         step = STEP_SPECS[name]
@@ -189,6 +233,13 @@ def run_selected_steps(step_names: list[str], base_path: Path) -> int:
             blocked.append((step, missing))
         if not step.automated:
             non_automated.append(step)
+        elif not missing:
+            try:
+                run_automated_step(step, base_path)
+                ran_automated = True
+            except subprocess.CalledProcessError as exc:
+                logging.error("%s failed with exit code %s", step.name, exc.returncode)
+                return exc.returncode
 
     for step, paths in blocked:
         logging.error("%s is blocked by missing inputs:", step.name)
@@ -202,8 +253,14 @@ def run_selected_steps(step_names: list[str], base_path: Path) -> int:
             logging.error("%s remains %s: %s", step.name, step.status, step.description)
         return 1
 
-    logging.info("Selected steps are automated, but no automated steps are registered yet.")
-    return 1
+    if blocked:
+        return 1
+    if ran_automated:
+        logging.info("Automated selected steps completed.")
+        return 0
+
+    logging.info("No runnable steps were selected.")
+    return 0
 
 
 def parse_args() -> argparse.Namespace:

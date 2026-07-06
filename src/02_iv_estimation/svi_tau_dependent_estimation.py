@@ -1,4 +1,5 @@
 import argparse
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +10,10 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+from utils.data_utils import write_provenance
+
 DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "iv_matrices" / "IR0"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "iv_surfaces"
 DEFAULT_PLOTS_DIR = PROJECT_ROOT / "results" / "figures" / "svi_tau_dependent"
@@ -17,7 +22,7 @@ DEFAULT_PLOTS_DIR = PROJECT_ROOT / "results" / "figures" / "svi_tau_dependent"
 results_list = []
 thetas_dict = {}
 
-def process_csv_file(file_path):
+def process_csv_file(file_path, rng):
     import pandas as pd
     import numpy as np
     import matplotlib.pyplot as plt
@@ -156,7 +161,7 @@ def process_csv_file(file_path):
                    {'type': 'ineq', 'fun': constraint4}]
 
     # Initialization
-    theta_guess = 0.05 * np.random.rand(10)
+    theta_guess = 0.05 * rng.random(10)
     max_iterations = 4  # set some max number of iterations to avoid infinite loops
     iteration_count = 0
     # bounds for 10 parameters. Do not change!
@@ -183,7 +188,7 @@ def process_csv_file(file_path):
             losses.append(result.fun)  # Assuming result.fun contains the final loss, adjust if not
 
             # Update the theta_guess for the next iteration
-            theta_guess = result.x + 0.02 * np.random.rand(10)
+            theta_guess = result.x + 0.02 * rng.random(10)
 
         # Review Results
         best_iteration = np.argmin(losses)
@@ -233,11 +238,12 @@ def process_csv_file(file_path):
     thetas_dict[file_label] = best_thetas
 
 
-def run(input_dir: Path, output_dir: Path, plots_dir: Path) -> None:
+def run(input_dir: Path, output_dir: Path, plots_dir: Path, seed: int) -> None:
     """Estimate SVI parameters for all matching IV matrix files."""
     input_dir = input_dir.expanduser().resolve()
     output_dir = output_dir.expanduser().resolve()
     plots_dir = plots_dir.expanduser().resolve()
+    rng = np.random.default_rng(seed)
 
     if not input_dir.exists():
         raise FileNotFoundError(f"Input directory does not exist: {input_dir}")
@@ -247,7 +253,7 @@ def run(input_dir: Path, output_dir: Path, plots_dir: Path) -> None:
 
     for file_path in sorted(input_dir.glob("IV*.csv")):
         print(f"Processing {file_path.name}...")
-        process_csv_file(file_path)
+        process_csv_file(file_path, rng)
 
     results_df = pd.DataFrame(results_list)
     df_thetas = pd.DataFrame(thetas_dict).T
@@ -256,6 +262,17 @@ def run(input_dir: Path, output_dir: Path, plots_dir: Path) -> None:
 
     df_thetas.to_csv(output_dir / 'paras5b.csv', index=True)
     results_df.to_csv(output_dir / 'svi_iv_and_r2_results5b.csv', index=False)
+    write_provenance(
+        output_dir / "svi_tau_dependent_provenance.json",
+        script=__file__,
+        inputs=sorted(input_dir.glob("IV*.csv")),
+        parameters={
+            "input_dir": str(input_dir),
+            "output_dir": str(output_dir),
+            "plots_dir": str(plots_dir),
+            "seed": seed,
+        },
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -263,12 +280,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--plots-dir", type=Path, default=DEFAULT_PLOTS_DIR)
+    parser.add_argument("--seed", type=int, default=0)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    run(args.input_dir, args.output_dir, args.plots_dir)
+    run(args.input_dir, args.output_dir, args.plots_dir, args.seed)
 
 
 if __name__ == "__main__":

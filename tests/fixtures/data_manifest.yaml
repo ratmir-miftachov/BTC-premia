@@ -1,0 +1,51 @@
+version: 1
+python: ">=3.10"
+stages:
+  iv:
+    inputs:
+      - path: IV/IV_surface_SVI/Tau-independent/unique/moneyness_step_0d01/interpolated_2020-01-01_allR2.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [Date, TTM, "-0.0100", "0.0000", "0.0100"]
+  q_density:
+    inputs:
+      - path: Data/IR_daily.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [date, interest_rate]
+      - path: Q_from_pure_SVI/Tau-independent/unique/moneyness_step_0d01/tau_27/btc_Q_2020-01-01.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [m, spdy]
+  clustering:
+    inputs:
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_5day_0d15.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [Return, "2020-01-01", "2020-01-02"]
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_9day_0d15.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [Return, "2020-01-01", "2020-01-02"]
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_14day_0d15.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [Return, "2020-01-01", "2020-01-02"]
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_27day_0d15.csv
+        kind: fixture
+        tracked: true
+        required: true
+        format: csv
+        columns: [Return, "2020-01-01", "2020-01-02"]

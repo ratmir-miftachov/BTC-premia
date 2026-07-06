@@ -1,0 +1,189 @@
+version: 1
+base_path_env: BTC_PREMIA_BASE
+python: ">=3.10"
+optional_tools:
+  - name: MATLAB
+    command: matlab
+    required_for: [data_preprocessing, risk, visualization]
+  - name: R
+    command: Rscript
+    required_for: [q_density]
+
+stages:
+  data_preprocessing:
+    owner: src/01_data_preprocessing
+    inputs:
+      - path: data/17Jul_18Dec/sampleall.csv
+        kind: raw
+        tracked: false
+        required: true
+        format: csv
+      - path: data/deribit20192020/option1920clean.csv
+        kind: raw
+        tracked: false
+        required: true
+        format: csv
+      - path: data/all_btc33.csv
+        kind: raw
+        tracked: false
+        required: true
+        format: csv
+    outputs:
+      - path: Summary_stats/1_3_5
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+
+  iv:
+    owner: src/02_iv_estimation
+    inputs:
+      - path: data/iv_matrices/IR0
+        kind: raw
+        tracked: false
+        required: true
+        format: directory
+      - path: SVI/v1/svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv
+        kind: intermediate
+        tracked: false
+        required: true
+        format: csv
+        columns: [Date, tau, R2]
+      - path: SVI/v1/svi_Tau-Ind_Mon-Uni_paras.csv
+        kind: intermediate
+        tracked: false
+        required: true
+        format: csv
+    outputs:
+      - path: IV/IV_SVI/Tau-independent/unique/moneyness_step_0d01
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+      - path: IV/IV_surface_SVI/Tau-independent/unique/moneyness_step_0d01
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+
+  q_density:
+    owner: src/03_q_density
+    inputs:
+      - path: src/Q_from_IV.R
+        kind: source
+        tracked: true
+        required: true
+        format: file
+      - path: Data/IR_daily.csv
+        kind: raw
+        tracked: false
+        required: true
+        format: csv
+        columns: [date, interest_rate]
+      - path: IV/IV_surface_SVI/Tau-independent/unique/moneyness_step_0d01
+        kind: intermediate
+        tracked: false
+        required: true
+        format: directory
+    outputs:
+      - path: Q_from_pure_SVI/Tau-independent/unique/moneyness_step_0d01
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+
+  clustering:
+    owner: src/04_clustering
+    inputs:
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_5day_0d15.csv
+        kind: intermediate
+        tracked: false
+        required: true
+        format: csv
+        columns: [Return]
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_9day_0d15.csv
+        kind: intermediate
+        tracked: false
+        required: true
+        format: csv
+        columns: [Return]
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_14day_0d15.csv
+        kind: intermediate
+        tracked: false
+        required: true
+        format: csv
+        columns: [Return]
+      - path: Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_27day_0d15.csv
+        kind: intermediate
+        tracked: false
+        required: true
+        format: csv
+        columns: [Return]
+    outputs:
+      - path: Clustering/Tau-independent/unique/moneyness_step_0d01
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+
+  risk:
+    owner: src/05_risk_analysis
+    inputs:
+      - path: Data/BTC_USD_Quandl_2011_2023.csv
+        kind: raw
+        tracked: false
+        required: true
+        format: csv
+        columns: [Date, Adj.Close]
+      - path: RiskPremia/Tau-independent/unique/moneyness_step_0d01
+        kind: intermediate
+        tracked: false
+        required: true
+        format: directory
+    outputs:
+      - path: Lower_Bound/Tau-independent/unique/moneyness_step_0d01
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+
+  bvix:
+    owner: src/06_volatility
+    inputs:
+      - path: data/bvix/ttm27_new
+        kind: raw
+        tracked: false
+        required: true
+        format: directory
+      - path: Data/deribit-metrics_new.csv
+        kind: raw
+        tracked: false
+        required: true
+        format: csv
+        columns: [DateTime, "BTC Volatility Index (DVOL)"]
+    outputs:
+      - path: results/bvix
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+
+  visualization:
+    owner: src/07_visualization
+    inputs:
+      - path: results
+        kind: generated
+        tracked: false
+        required: false
+        format: directory
+    outputs:
+      - path: results/figures
+        kind: generated
+        tracked: false
+        required: false
+        format: directory

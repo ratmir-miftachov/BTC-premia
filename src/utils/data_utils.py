@@ -5,10 +5,15 @@ Common data processing functions used across the project.
 """
 
 import os
+import json
+import hashlib
+import platform
 import pandas as pd
 import numpy as np
 from typing import List, Tuple, Optional, Union
 from pathlib import Path
+from datetime import datetime, timezone
+from importlib import metadata
 
 
 def load_btc_data(file_path: str) -> pd.DataFrame:
@@ -143,6 +148,73 @@ def load_config(config_path: str) -> dict:
         config = yaml.safe_load(f)
     
     return config
+
+
+def file_sha256(file_path: Union[str, Path]) -> Optional[str]:
+    """Return a SHA-256 hash for an existing file."""
+    path = Path(file_path)
+    if not path.is_file():
+        return None
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def package_versions(packages: Optional[List[str]] = None) -> dict:
+    """Collect installed package versions for provenance metadata."""
+    packages = packages or ["numpy", "pandas", "scipy", "scikit-learn", "statsmodels", "matplotlib"]
+    versions = {}
+    for package in packages:
+        try:
+            versions[package] = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            versions[package] = None
+    return versions
+
+
+def write_provenance(output_path: Union[str, Path],
+                     script: str,
+                     inputs: Optional[List[Union[str, Path]]] = None,
+                     config_path: Optional[Union[str, Path]] = None,
+                     parameters: Optional[dict] = None) -> None:
+    """Write JSON provenance beside generated artifacts."""
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    input_entries = []
+    for item in inputs or []:
+        item_path = Path(item)
+        input_entries.append({
+            "path": str(item_path),
+            "exists": item_path.exists(),
+            "sha256": file_sha256(item_path),
+        })
+
+    config_entry = None
+    if config_path is not None:
+        config = Path(config_path)
+        config_entry = {
+            "path": str(config),
+            "exists": config.exists(),
+            "sha256": file_sha256(config),
+        }
+
+    payload = {
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "script": script,
+        "parameters": parameters or {},
+        "inputs": input_entries,
+        "config": config_entry,
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "packages": package_versions(),
+    }
+
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
 
 
 class DataPaths:
