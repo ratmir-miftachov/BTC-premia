@@ -31,10 +31,20 @@ jobs:
         run: |
           python scripts/run_full_pipeline.py --dry-run --steps all
 
+      - name: Run clustering fixture smoke test
+        env:
+          BTC_PREMIA_BASE: tests/fixtures
+          MPLBACKEND: Agg
+        run: |
+          python src/04_clustering/market_regime_clustering.py
+
       - name: Run smoke tests
         run: |
           python -m unittest discover -s tests
 
+      - name: Check MATLAB comment syntax
+        run: |
+          ! grep -RInE '^[[:space:]]*//' src --include='*.m'
       - name: Check for local absolute paths
         run: |
           ! grep -RInE '/Users|/home|H:|C:|os\.chdir' scripts src --include='*.py' --include='*.m'

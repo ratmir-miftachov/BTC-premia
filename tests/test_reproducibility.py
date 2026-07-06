@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import unittest
@@ -68,6 +69,22 @@ class ReproducibilitySmokeTest(unittest.TestCase):
         distances = pdist(np.array(vectors), "euclidean")
         tree = linkage(distances, method="ward")
         self.assertEqual(tree.shape, (1, 4))
+
+    def test_market_regime_clustering_script_runs_on_fixtures(self):
+        env = os.environ.copy()
+        env["BTC_PREMIA_BASE"] = str(FIXTURES)
+        env["MPLBACKEND"] = "Agg"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "src" / "04_clustering" / "market_regime_clustering.py"),
+            ],
+            check=False,
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

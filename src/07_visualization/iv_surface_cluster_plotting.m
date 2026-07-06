@@ -2,17 +2,17 @@ addpath("m_Files_Color/colormap/")
 
 % Load data
 
-// % Load the common dates of the multivariate clustering
-// common_dates_path = "Clustering/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/common_dates_cluster.csv"
-// common_dates = pd.read_csv(common_dates_path)
+% Load the common dates of the multivariate clustering
+% common_dates_path = "Clustering/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/common_dates_cluster.csv"
+% common_dates = pd.read_csv(common_dates_path)
 
-// dates_Q = {}
-// dates_Q[0] = common_dates[common_dates['Cluster']==0]['Date']
-// dates_Q[1] = common_dates[common_dates['Cluster']==1]['Date']
+% dates_Q = {}
+% dates_Q[0] = common_dates[common_dates['Cluster']==0]['Date']
+% dates_Q[1] = common_dates[common_dates['Cluster']==1]['Date']
 
-// dates_Q_overall = pd.concat([dates_Q[0], dates_Q[1]])
-// dates_Q_overall = pd.to_datetime(dates_Q_overall)
-// dates_Q_overall = dates_Q_overall.sort_values()
+% dates_Q_overall = pd.concat([dates_Q[0], dates_Q[1]])
+% dates_Q_overall = pd.to_datetime(dates_Q_overall)
+% dates_Q_overall = dates_Q_overall.sort_values()
 
 % Load the common dates of the multivariate clustering
 common_dates_path = "Clustering/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/common_dates_cluster.csv";
@@ -170,8 +170,6 @@ view(45, 10); % Adjusts the viewing angle of the plot
 
 set(gcf,'position',[0,0,450,300])
 saveas(gcf,"IV_surface/IV_surface_1by3_2_LV.png")
-
-
 
 
 

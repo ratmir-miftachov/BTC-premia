@@ -74,7 +74,7 @@ for date in common_columns:
 concatenated_matrix = np.array(concatenated_vectors)
 distance_matrix_flat = scipy.spatial.distance.pdist(concatenated_matrix, 'euclidean')
 Z = sch.linkage(distance_matrix_flat, method='ward')
-cluster_labels = cut_tree(Z, height=35).T
+cluster_labels = cut_tree(Z, height=35).ravel().astype(int)
 
 # =======================
 # Plot the dendrogram
@@ -85,13 +85,14 @@ plt.xticks([])
 leaf_x_positions = dendrogram_data['icoord']
 # Calculate mean x-position for each cluster's leaves to find a representative x-position for the cluster label
 mean_x_positions = [np.mean(xs) for xs in leaf_x_positions]
-cluster_0_x_pos = np.mean(mean_x_positions[:len(mean_x_positions)//2])
-cluster_1_x_pos = np.mean(mean_x_positions[len(mean_x_positions)//2:])
-# Add custom labels "C0" and "C1" at the data-driven x-positions
-plt.text(x=cluster_0_x_pos, y=-5, s="HV Cluster", ha='center', va='center', fontsize=12, color='blue')
-plt.text(x=cluster_1_x_pos, y=-5, s="LV Cluster ", ha='center', va='center', fontsize=12, color='red')
+if len(mean_x_positions) >= 2:
+    cluster_0_x_pos = np.mean(mean_x_positions[:len(mean_x_positions)//2])
+    cluster_1_x_pos = np.mean(mean_x_positions[len(mean_x_positions)//2:])
+    # Add custom labels "C0" and "C1" at the data-driven x-positions
+    plt.text(x=cluster_0_x_pos, y=-5, s="HV Cluster", ha='center', va='center', fontsize=12, color='blue')
+    plt.text(x=cluster_1_x_pos, y=-5, s="LV Cluster ", ha='center', va='center', fontsize=12, color='red')
 plt.show()
-ss= cut_tree(Z, n_clusters = 2).T
+ss = cut_tree(Z, n_clusters = 2).ravel().astype(int)
 np.unique(ss, return_counts=True)
 
 
@@ -161,7 +162,7 @@ plt.show()
 # Plot the common Q vectors for each ttm, Q_0 cluster
 # =======================================================
 # Find the indices of the columns where the binary array has a 1
-zero_indices = np.where(ss == 1)[1]
+zero_indices = np.where(ss == 1)[0]
 # Select only the columns corresponding to the zero indices
 selected_columns = [common_columns[i] for i in zero_indices if i < len(common_columns)]
 fig, axes = plt.subplots(2, 2, figsize=(10, 10))
@@ -183,7 +184,7 @@ plt.show()
 # Plot the common Q vectors for each ttm, Q_1 cluster
 # =======================================================
 # Find the indices of the columns where the binary array has a 0
-zero_indices = np.where(ss == 0)[1]
+zero_indices = np.where(ss == 0)[0]
 # Select only the columns corresponding to the zero indices
 selected_columns = [common_columns[i] for i in zero_indices if i < len(common_columns)]
 fig, axes = plt.subplots(2, 2, figsize=(10, 10))
