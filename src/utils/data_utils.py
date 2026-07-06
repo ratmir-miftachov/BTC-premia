@@ -149,7 +149,7 @@ class DataPaths:
     """Centralized data path management."""
     
     def __init__(self, base_path: str = "."):
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path).expanduser().resolve()
         
     @property
     def data_dir(self) -> Path:
@@ -177,4 +177,4 @@ class DataPaths:
         
     @property
     def figures_dir(self) -> Path:
-        return self.results_dir / "figures" 
+        return self.results_dir / "figures"

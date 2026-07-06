@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator
 from datetime import datetime
+from pathlib import Path
 
 # -------------------------------
 # Helper functions for the new task
@@ -216,8 +217,8 @@ def process_all_dates(Q_data_dir, iv_surface_dir, obs_data_path, grid_full, tol,
 # Define parameters and run the new plotting routine
 # -------------------------------
 
-# Set base directories (adjust these paths as needed)
-base_dir = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/"
+# Set base directories. Override with BTC_PREMIA_BASE when data lives elsewhere.
+base_dir = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
 Q_data_dir = os.path.join(base_dir, "Q_from_pure_SVI", "Tau-independent", "unique", "moneyness_step_0d01")
 iv_surface_dir = os.path.join(base_dir, "IV", "IV_surface_SVI", "Tau-independent", "unique", "moneyness_step_0d01")
 obs_data_path = os.path.join(base_dir, "Data", "processed", "20172022_processed_1_3_5_standardized_moneyness.csv")

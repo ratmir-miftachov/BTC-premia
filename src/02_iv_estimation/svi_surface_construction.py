@@ -6,6 +6,7 @@ for name in list(globals()):
 import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 ###############################################################################################################
 ################START OF MAIN CODE###############################################################################
@@ -16,22 +17,21 @@ import numpy as np
 # Some other stuff can be done when the cluster dates are used, but this is not of main interest in this code
 # and I do not remember what it was used for.
 
-# Path to read in the IV Matrix files for each day. Use the IR0 folder in the github.
-path="/Users/ratmir/Downloads/testttm/update/IR0"
-#path="/Users/ratmir/Downloads/testttm/IV_matrix_IR0"
+BASE_DIR = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
+INPUT_DIR = Path(os.environ.get("BTC_PREMIA_SVI_SURFACE_DIR", BASE_DIR / "data" / "iv_surfaces")).expanduser()
+OUTPUT_DIR = INPUT_DIR
 
-os.chdir(path)
 #This is the input from the SVI estimation, that we got from estimate_SVI_coefficients_each_day.py:
-df1 = pd.read_csv('svi_iv_and_r2_results5.csv')
-df2 = pd.read_csv('paras5.csv')
+df1 = pd.read_csv(INPUT_DIR / 'svi_iv_and_r2_results5.csv')
+df2 = pd.read_csv(INPUT_DIR / 'paras5.csv')
 
 #C1 = pd.read_csv('dates_cluster1.csv')
 #C0 = pd.read_csv('dates_cluster0.csv')
 
 
-#these .pngs should be deleted
+# Optional cleanup for low-R2 figures generated during exploratory analysis.
 # del_dates = df1[df1['R2'] < 0.97].iloc[:, 0]
-# folder_path = '/Users/ratmir/Desktop/Plots_IVs'  # Replace with the path to your folder containing the .png files
+# folder_path = OUTPUT_DIR / 'Plots_IVs'
 # for entry in del_dates:
 #     # Extract the base name from the entry string (i.e., without .csv) and construct the .png filename
 #     base_name = entry.replace('.csv', '')
@@ -73,7 +73,7 @@ for ttm in ttms:
     all_IVs = pd.DataFrame()  # Initialize an empty DataFrame for the current ttm
 
     for file in paras['Date']:
-        file_df = pd.read_csv(file)
+        file_df = pd.read_csv(INPUT_DIR / file)
         print(f"Interpolate IV for desired ttm in file {file}.")
 
         #extracting thetas
@@ -101,7 +101,7 @@ for ttm in ttms:
     all_IVs_list.append(all_IVs)
 
 
-all_IVs.to_csv('interpolated_IV5_098.csv', index=False)
+all_IVs.to_csv(OUTPUT_DIR / 'interpolated_IV5_098.csv', index=False)
 
 
 ###############################################################################################################
@@ -173,20 +173,15 @@ plt.show()
 combined_df = pd.concat(column_averages_list, keys=ttms)
 combined_df.reset_index(level=0, inplace=True)
 combined_df.rename(columns={'level_0': 'TTM'}, inplace=True)
-combined_df.to_csv('overall_average_surface.csv', index=False)
+combined_df.to_csv(OUTPUT_DIR / 'overall_average_surface.csv', index=False)
 
 combined_df0 = pd.concat(column_averages_list_C0, keys=ttms)
 combined_df0.reset_index(level=0, inplace=True)
 combined_df0.rename(columns={'level_0': 'TTM'}, inplace=True)
-combined_df0.to_csv('average_surface0.csv', index=False)
+combined_df0.to_csv(OUTPUT_DIR / 'average_surface0.csv', index=False)
 
 combined_df1 = pd.concat(column_averages_list_C1, keys=ttms)
 combined_df1.reset_index(level=0, inplace=True)
 combined_df1.rename(columns={'level_0': 'TTM'}, inplace=True)
-combined_df1.to_csv('average_surface1.csv', index=False)
-
-
-#Double check: that is what I have used:
-a=pd.read_csv('/Users/ratmir/Dropbox/CDI for Crypto/Updates/update_20231006to1017/interpolated IVs/interpolated_IV5_02_99.csv')
-
+combined_df1.to_csv(OUTPUT_DIR / 'average_surface1.csv', index=False)
 

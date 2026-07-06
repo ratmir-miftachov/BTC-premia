@@ -1,1 +1,0 @@
-main automate.py is the full VIX code and it also produces the VIX plot

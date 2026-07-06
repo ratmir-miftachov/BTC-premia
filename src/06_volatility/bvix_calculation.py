@@ -8,9 +8,12 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 import statsmodels.api as sm
+from pathlib import Path
 
-path="/Users/ratmir/Desktop/VIX/ttm27_new"
-os.chdir(path)
+BASE_DIR = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
+INPUT_DIR = Path(os.environ.get("BTC_PREMIA_BVIX_INPUT_DIR", BASE_DIR / "data" / "bvix" / "ttm27_new")).expanduser()
+OUTPUT_DIR = Path(os.environ.get("BTC_PREMIA_BVIX_OUTPUT_DIR", BASE_DIR / "results" / "bvix")).expanduser()
+DERIBIT_METRICS_PATH = Path(os.environ.get("BTC_PREMIA_DERIBIT_METRICS", BASE_DIR / "Data" / "deribit-metrics_new.csv")).expanduser()
 
 def extract_info(filename):
     pattern = re.compile(r'(\d{8})_QW_T1_(\d+)_T2_(\d+).csv')
@@ -191,14 +194,14 @@ def calculate_vix_for_file(filename, date, ttm1, ttm2, tau):
 vix_df = pd.DataFrame(columns=['Date', 'VIX'])
 all_data = []  # List to store all individual DataFrames
 
-for filename in os.listdir(path):
+for filename in os.listdir(INPUT_DIR):
     try:
         if filename.endswith('.csv'):
             print(f"Processing: {filename}")
             file_info = extract_info(filename)
             if file_info is not None:
                 date, ttm1, ttm2 = file_info
-                filepath = os.path.join(path, filename)
+                filepath = INPUT_DIR / filename
                 new_vix_data = calculate_vix_for_file(filepath, date, ttm1, ttm2, tau=27)
 
                 # Check if the DataFrame is not None
@@ -229,7 +232,7 @@ df_sorted_filtered = df_sorted[df_sorted['VIX'] <= 170]
 mask = df_sorted_filtered['Date'] >= '2017-07-01'        #deribit comparison: '2021-03-27'
 df_sorted_filtered = df_sorted_filtered[mask]
 
-#df_sorted_filtered.to_csv('btc_vix.csv', index=False)
+#df_sorted_filtered.to_csv(OUTPUT_DIR / 'btc_vix.csv', index=False)
 
 
 
@@ -250,7 +253,8 @@ df_sorted_filtered.loc[df_sorted_filtered['VIX'].index, 'EMA'] = ema
 #save:
 df_sorted_filtered.drop(df_sorted_filtered.columns[1], axis=1, inplace=True)
 
-df_sorted_filtered.to_csv('btc_vix_EWA_27_new.csv', index=False)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+df_sorted_filtered.to_csv(OUTPUT_DIR / 'btc_vix_EWA_27_new.csv', index=False)
 
 
 
@@ -260,10 +264,8 @@ df_sorted_filtered.to_csv('btc_vix_EWA_27_new.csv', index=False)
 
 # Plotting
 
-file_path = '/Users/ratmir/Downloads/deribit-metrics_new.csv'
-
 # Read the CSV file into a DataFrame
-df_dvol = pd.read_csv(file_path, sep=';')
+df_dvol = pd.read_csv(DERIBIT_METRICS_PATH, sep=';')
 
 # Ensure the 'date' column is a datetime type
 df_dvol['DateTime'] = pd.to_datetime(df_dvol['DateTime'])
