@@ -45,3 +45,6 @@ jobs:
       - name: Check MATLAB comment syntax
         run: |
           ! grep -RInE '^[[:space:]]*//' src --include='*.m'
+      - name: Check for local absolute paths
+        run: |
+          ! grep -RInE '/Users|/home|H:|C:|os\.chdir' scripts src --include='*.py' --include='*.m'

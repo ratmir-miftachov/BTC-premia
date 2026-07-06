@@ -5,17 +5,19 @@ import pandas as pd
 import os
 from scipy.stats.mstats import gmean
 from matplotlib.colors import ListedColormap
+from pathlib import Path
 # ========================================================================================================
 #data preprocessing, dimensionality reduction using UMAP, and visualization of results in 2D and 3D.
 # ========================================================================================================
 
-path="/Users/ratmir/Desktop/Clustering Zijin"
-os.chdir(path)
+BASE_DIR = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
+Q_MATRIX_DIR = BASE_DIR / "Q_matrix" / "Tau-independent" / "unique" / "moneyness_step_0d01"
+RANDOM_STATE = int(os.environ.get("BTC_PREMIA_RANDOM_SEED", "42"))
 # Load the .csv files into Pandas DataFrames
-df1 = pd.read_csv('Q_matrix_5day_0d15.csv')
-df2 = pd.read_csv('Q_matrix_9day_0d15.csv')
-df3 = pd.read_csv('Q_matrix_14day_0d15.csv')
-df4 = pd.read_csv('Q_matrix_27day_0d15.csv')
+df1 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_5day_0d15.csv')
+df2 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_9day_0d15.csv')
+df3 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_14day_0d15.csv')
+df4 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_27day_0d15.csv')
 
 #Transformation
 def clr(x):
@@ -85,7 +87,7 @@ data_combined = pd.concat([data1, data2, data3, data4], axis=1)
 for i, (n_neighbors, min_dist) in enumerate([(n, d) for n in n_neighbors_values for d in min_dist_values]):
     print(f"Processing n_neighbors={n_neighbors}, min_dist={min_dist}...")
     # Create a UMAP reducer object with the desired parameters
-    reducer = UMAP(n_neighbors=n_neighbors, min_dist=min_dist)
+    reducer = UMAP(n_neighbors=n_neighbors, min_dist=min_dist, random_state=RANDOM_STATE)
     # Fit the reducer to your data and transform it to a 2D space
     embedding = reducer.fit_transform(data_combined)
     # Creating a single plot
@@ -107,7 +109,7 @@ for i, (n_neighbors, min_dist) in enumerate([(n, d) for n in n_neighbors_values 
 
 
 # Specify the UMAP reducer with 3 components. Do not change the parameters. These two seem to work well!
-reducer = UMAP(n_neighbors=100, min_dist=0.2, n_components=3)
+reducer = UMAP(n_neighbors=100, min_dist=0.2, n_components=3, random_state=RANDOM_STATE)
 # Fit the reducer to your data and transform it to a 3D space
 embedding = reducer.fit_transform(data_combined)
 # Plot the results in a 3D plot
@@ -119,7 +121,5 @@ ax.set_ylabel('UMAP 2')
 ax.set_zlabel('UMAP 3')
 ax.set_title(f'n_neighbors: {100}, min_dist: {0.2}', fontsize=16)
 plt.show()
-
-
 
 

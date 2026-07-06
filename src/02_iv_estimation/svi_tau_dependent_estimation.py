@@ -1,22 +1,28 @@
-import os
+import argparse
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mpl_toolkits.mplot3d import Axes3D
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+from utils.data_utils import write_provenance
+
+DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "iv_matrices" / "IR0"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "iv_surfaces"
+DEFAULT_PLOTS_DIR = PROJECT_ROOT / "results" / "figures" / "svi_tau_dependent"
 
 # Initialize a list to save results
 results_list = []
 thetas_dict = {}
 
-# Set some Local Folder path
-plots_folder = "/home/RDC/miftachr/H:/miftachr/SVI"
-if not os.path.exists(plots_folder):
-    os.makedirs(plots_folder)
-
-def process_csv_file(filename):
-    import os
+def process_csv_file(file_path, rng):
     import pandas as pd
     import numpy as np
     import matplotlib.pyplot as plt
@@ -25,15 +31,17 @@ def process_csv_file(filename):
     from mpl_toolkits.mplot3d import Axes3D
 
     # read data:
-    df = pd.read_csv(filename)
+    file_path = Path(file_path)
+    file_label = file_path.name
+    df = pd.read_csv(file_path)
 
     if df.isna().any().any():
-        print(f"Skipping {filename} because it contains 'NaN' values.")
+        print(f"Skipping {file_label} because it contains 'NaN' values.")
         return
 
     #at least 3 ttms observed
     if len(df.columns) <= 3:
-        print(f"Skipping {filename} due to having {len(df.columns)} columns.")
+        print(f"Skipping {file_label} due to having {len(df.columns)} columns.")
         return
 
     df = df.transpose()
@@ -153,7 +161,7 @@ def process_csv_file(filename):
                    {'type': 'ineq', 'fun': constraint4}]
 
     # Initialization
-    theta_guess = 0.05 * np.random.rand(10)
+    theta_guess = 0.05 * rng.random(10)
     max_iterations = 4  # set some max number of iterations to avoid infinite loops
     iteration_count = 0
     # bounds for 10 parameters. Do not change!
@@ -180,7 +188,7 @@ def process_csv_file(filename):
             losses.append(result.fun)  # Assuming result.fun contains the final loss, adjust if not
 
             # Update the theta_guess for the next iteration
-            theta_guess = result.x + 0.02 * np.random.rand(10)
+            theta_guess = result.x + 0.02 * rng.random(10)
 
         # Review Results
         best_iteration = np.argmin(losses)
@@ -223,33 +231,63 @@ def process_csv_file(filename):
     iv_svi_at_9 = np.sqrt(svi_model(best_thetas, k_new, ttm_of_interest) / ttm_of_interest)
 
     iv_svi_at_9_dict = {f"{k:.4f}": iv for k, iv in zip(k_new, iv_svi_at_9)}
-    results_entry = {'Date': filename, 'R2': R2}
+    results_entry = {'Date': file_label, 'R2': R2}
     results_entry.update(iv_svi_at_9_dict)
     results_list.append(results_entry)
 
-    thetas_dict[filename] = best_thetas
+    thetas_dict[file_label] = best_thetas
 
-# Path to read in the IV Matrix files for each day. Use the IR0 folder in the github.
-path = "/home/RDC/miftachr/H:/miftachr/SVI/IR0"
-os.chdir(path)
 
-# Iterate over all CSV files in the directory.
-# This is the main loop that processes each CSV file.
-# I did it on the remote server. It might take some time to estimate all the IVs and parameters, run over night.
-# Suggestion: just run the loop for a couple of days to see how it all works.
-for filename in os.listdir(path):
-    if filename.endswith('.csv') and filename.startswith('IV'):
-        print(f"Processing {filename}...")
-        # Process the current CSV file
-        process_csv_file(filename)
+def run(input_dir: Path, output_dir: Path, plots_dir: Path, seed: int) -> None:
+    """Estimate SVI parameters for all matching IV matrix files."""
+    input_dir = input_dir.expanduser().resolve()
+    output_dir = output_dir.expanduser().resolve()
+    plots_dir = plots_dir.expanduser().resolve()
+    rng = np.random.default_rng(seed)
 
-# Convert the results list to a dataframe and save to a new CSV
-results_df = pd.DataFrame(results_list)
-# Convert the dictionary to a DataFrame
-df_thetas = pd.DataFrame(thetas_dict).T
-# Name columns as per the SVI model parameters
-df_thetas.columns = ['a', 'b', 'rho', 'm', 'sigma', 'a_ttm', 'b_ttm', 'rho_ttm', 'm_ttm', 'sigma_ttm']
+    if not input_dir.exists():
+        raise FileNotFoundError(f"Input directory does not exist: {input_dir}")
 
-# Save the results to CSV. Use some local folder of yours.
-df_thetas.to_csv('/home/RDC/miftachr/H:/miftachr/SVI/paras5b.csv', index=True)
-results_df.to_csv('/home/RDC/miftachr/H:/miftachr/SVI/svi_iv_and_r2_results5b.csv', index=False)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    for file_path in sorted(input_dir.glob("IV*.csv")):
+        print(f"Processing {file_path.name}...")
+        process_csv_file(file_path, rng)
+
+    results_df = pd.DataFrame(results_list)
+    df_thetas = pd.DataFrame(thetas_dict).T
+    if not df_thetas.empty:
+        df_thetas.columns = ['a', 'b', 'rho', 'm', 'sigma', 'a_ttm', 'b_ttm', 'rho_ttm', 'm_ttm', 'sigma_ttm']
+
+    df_thetas.to_csv(output_dir / 'paras5b.csv', index=True)
+    results_df.to_csv(output_dir / 'svi_iv_and_r2_results5b.csv', index=False)
+    write_provenance(
+        output_dir / "svi_tau_dependent_provenance.json",
+        script=__file__,
+        inputs=sorted(input_dir.glob("IV*.csv")),
+        parameters={
+            "input_dir": str(input_dir),
+            "output_dir": str(output_dir),
+            "plots_dir": str(plots_dir),
+            "seed": seed,
+        },
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Estimate tau-dependent SVI parameters.")
+    parser.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT_DIR)
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--plots-dir", type=Path, default=DEFAULT_PLOTS_DIR)
+    parser.add_argument("--seed", type=int, default=0)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    run(args.input_dir, args.output_dir, args.plots_dir, args.seed)
+
+
+if __name__ == "__main__":
+    main()

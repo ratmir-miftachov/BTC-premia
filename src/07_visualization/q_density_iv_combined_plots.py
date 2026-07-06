@@ -7,6 +7,7 @@ from scipy.interpolate import PchipInterpolator
 import matplotlib.pyplot as plt
 from datetime import datetime
 from joblib import Parallel, delayed
+from pathlib import Path
 
 # -------------------------------
 # Helper functions
@@ -17,10 +18,10 @@ def compute_density_moments(ret, density, ttm):
     Computes the first four moments (mean, variance, skewness, kurtosis)
     of a Q density curve given on a grid ret. Moments are scaled by 365/ttm.
     """
-    m1 = np.trapezoid(density * ret, ret)
-    m2 = np.trapezoid(density * (ret - m1)**2, ret)
-    m3 = np.trapezoid(density * (ret - m1)**3, ret)
-    m4 = np.trapezoid(density * (ret - m1)**4, ret)
+    m1 = np.trapz(density * ret, ret)
+    m2 = np.trapz(density * (ret - m1)**2, ret)
+    m3 = np.trapz(density * (ret - m1)**3, ret)
+    m4 = np.trapz(density * (ret - m1)**4, ret)
     
     Mean = m1 * 365 / ttm
     Variance = m2 * 365 / ttm
@@ -228,7 +229,7 @@ def process_ttm_combined(ttm, base_dir, Q_plots_dir, Q_data_dir, Q_matrix_dir,
             except Exception as e:
                 print(f"Interpolation error in {file}: {e}")
                 continue
-            norm_factor = np.trapezoid(Q_interp_full, grid_full)
+            norm_factor = np.trapz(Q_interp_full, grid_full)
             if norm_factor > 0:
                 Q_interp_full /= norm_factor
                 Q_interp_d15 /= norm_factor
@@ -481,8 +482,7 @@ def process_ttm_combined(ttm, base_dir, Q_plots_dir, Q_data_dir, Q_matrix_dir,
 # -------------------------------
 
 def main_parallel():
-    base_dir = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/"
-    os.chdir(base_dir)
+    base_dir = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
     Q_plots_dir = os.path.join(base_dir, "Q_plots", "Tau-independent", "unique", "moneyness_step_0d01")
     Q_data_dir = os.path.join(base_dir, 'Q_from_pure_SVI', 'Tau-independent', 'unique', 'moneyness_step_0d01')
     Q_matrix_dir = os.path.join(base_dir, "Q_matrix", "Tau-independent", "unique", "moneyness_step_0d01")

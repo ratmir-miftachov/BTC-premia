@@ -1,7 +1,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Set workingpath
-work_path = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/";
+%% Set working path. Defaults to current folder unless BTC_PREMIA_BASE is set.
+base_env = getenv("BTC_PREMIA_BASE");
+if strlength(base_env) == 0
+    work_path = string(pwd);
+else
+    work_path = string(base_env);
+end
 cd(work_path);
 
 % Read cluster information

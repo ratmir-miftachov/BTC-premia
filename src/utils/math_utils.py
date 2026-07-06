@@ -102,12 +102,12 @@ def compute_density_moments(ret: np.ndarray, density: np.ndarray, ttm: int) -> d
         Dictionary with moments M1-M6, scaled by 365/ttm
     """
     # Compute raw moments
-    m1 = np.trapezoid(density * ret, ret)
-    m2 = np.trapezoid(density * (ret - m1)**2, ret)
-    m3 = np.trapezoid(density * (ret - m1)**3, ret)
-    m4 = np.trapezoid(density * (ret - m1)**4, ret)
-    m5 = np.trapezoid(density * (ret - m1)**5, ret)
-    m6 = np.trapezoid(density * (ret - m1)**6, ret)
+    m1 = np.trapz(density * ret, ret)
+    m2 = np.trapz(density * (ret - m1)**2, ret)
+    m3 = np.trapz(density * (ret - m1)**3, ret)
+    m4 = np.trapz(density * (ret - m1)**4, ret)
+    m5 = np.trapz(density * (ret - m1)**5, ret)
+    m6 = np.trapz(density * (ret - m1)**6, ret)
     
     # Scale by annualization factor
     scaling = 365 / ttm
@@ -171,7 +171,7 @@ def normalize_density(density: np.ndarray, returns: np.ndarray) -> np.ndarray:
     array-like
         Normalized density
     """
-    integral = np.trapezoid(density, returns)
+    integral = np.trapz(density, returns)
     if integral > 0:
         return density / integral
     else:
@@ -205,8 +205,8 @@ def calculate_bitcoin_premium(ret: np.ndarray,
         Bitcoin premium (annualized)
     """
     # Expected returns under P and Q measures
-    e_p = np.trapezoid(ret * p_density, ret)
-    e_q = np.trapezoid(ret * q_density, ret) if q_density is not None else risk_free_rate * ttm / 365
+    e_p = np.trapz(ret * p_density, ret)
+    e_q = np.trapz(ret * q_density, ret) if q_density is not None else risk_free_rate * ttm / 365
     
     # Annualize
     bp = (e_p - e_q) * 365 / ttm
@@ -238,12 +238,12 @@ def calculate_variance_risk_premium(ret: np.ndarray,
         Variance risk premium (annualized)
     """
     # Expected returns
-    e_p = np.trapezoid(ret * p_density, ret)
-    e_q = np.trapezoid(ret * q_density, ret)
+    e_p = np.trapz(ret * p_density, ret)
+    e_q = np.trapz(ret * q_density, ret)
     
     # Variances
-    var_p = np.trapezoid((ret - e_p)**2 * p_density, ret)
-    var_q = np.trapezoid((ret - e_q)**2 * q_density, ret)
+    var_p = np.trapz((ret - e_p)**2 * p_density, ret)
+    var_q = np.trapz((ret - e_q)**2 * q_density, ret)
     
     # VRP (annualized)
     vrp = (var_q - var_p) * 365 / ttm
