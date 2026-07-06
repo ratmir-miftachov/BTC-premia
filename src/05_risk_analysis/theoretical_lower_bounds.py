@@ -1,13 +1,13 @@
 
 
 
-# Main code for: 
+# Main code for:
 
 # BTC lower bound
 # Reference: Chabi-Yo & Loudis (2020), Martin (2017), Foley et al. (2022)
 
 """
-There are three types of lower bound: 
+There are three types of lower bound:
 - Martin's lower bound
 - Preference-based lower bound (unrestricted) - from Chabi-Yo & Loudis (2020)
 - Restricted lower bound - from Chabi-Yo & Loudis (2020)
@@ -59,22 +59,22 @@ def moments_Q_density(date_Q, Q_matrix, ttm=27, ret=np.arange(-1, 1.01, 0.01)):
         Q_density_interpolated[Q_density_interpolated < 0] = 0
 
     # M1: First moment (Mean)
-    M1 = np.trapezoid(ret * Q_density_interpolated, ret) 
+    M1 = np.trapz(ret * Q_density_interpolated, ret)
 
     # M2: Second moment (Variance)
-    M2 = np.trapezoid((ret - M1) ** 2 * Q_density_interpolated, ret) 
+    M2 = np.trapz((ret - M1) ** 2 * Q_density_interpolated, ret)
 
     # M3: Third moment (Skewness)
-    M3 = np.trapezoid((ret - M1) ** 3 * Q_density_interpolated, ret) #/ M2 ** 1.5
+    M3 = np.trapz((ret - M1) ** 3 * Q_density_interpolated, ret) #/ M2 ** 1.5
 
     # M4: Fourth moment (Kurtosis)
-    M4 = np.trapezoid((ret - M1) ** 4 * Q_density_interpolated, ret) #/ M2 ** 2
+    M4 = np.trapz((ret - M1) ** 4 * Q_density_interpolated, ret) #/ M2 ** 2
 
     # M5: Fifth moment
-    M5 = np.trapezoid((ret - M1) ** 5 * Q_density_interpolated, ret) 
+    M5 = np.trapz((ret - M1) ** 5 * Q_density_interpolated, ret)
 
     # M6: Sixth moment
-    M6 = np.trapezoid((ret - M1) ** 6 * Q_density_interpolated, ret) 
+    M6 = np.trapz((ret - M1) ** 6 * Q_density_interpolated, ret)
 
     return {'M1': M1, 'M2': M2, 'M3': M3, 'M4': M4, 'M5': M5, 'M6': M6}
 
@@ -144,7 +144,7 @@ def return_overall_forward(daily_price, dates_Q_overall, ttm, ret_type="gross"):
         end_date = date_Q + pd.Timedelta(days=ttm)
         sp1 = daily_price[(daily_price['Date'] >= start_date) & (daily_price['Date'] <= end_date)]
         sp1 = sp1.sort_values(by='Date')
-        
+
         # Calculate forward return
         if len(sp1) > 0:  # Check if there is enough data for the given period
             if ret_type == "gross":
@@ -157,9 +157,9 @@ def return_overall_forward(daily_price, dates_Q_overall, ttm, ret_type="gross"):
                 raise ValueError(f"Invalid return type: {ret_type}")
         else:
             forward_return = np.nan  # Handle missing data
-        
+
         return_forward.append(forward_return)
-    
+
     return np.array(return_forward)
 
 # Calculate forward returns
@@ -175,7 +175,7 @@ def equation_63(params, Q_matrix, R_f, excess_returns, ret, dates_Q_overall):
     tau, rho, kappa, alpha1, alpha2, alpha3 = params
 
     params_LB = [tau, rho, kappa]
-    
+
     # Calculate the unrestricted lower bound of expected excess returns
     LB1_t_df = calculate_time_varying_LBU(Q_matrix, params_LB, R_f, dates_Q_overall)
     LB1_t = LB1_t_df['Lower_Bound']
@@ -192,42 +192,42 @@ def equation_64(params, Q_matrix, R_f, excess_returns, ret, dates_Q_overall, Mom
     tau, rho, kappa, alpha1, alpha2, alpha3 = params
 
     params_UB = [tau, rho, kappa]
-    
+
     # Calculate the model-implied upper bound of expected excess returns
     UB2_t_df = calculate_time_varying_UBU2(Q_matrix, params_UB, R_f, dates_Q_overall)
     LB2_t = UB2_t_df['Upper_Bound']
-    
+
     # Ensure excess_returns_t is numeric
     excess_returns_t = pd.to_numeric(excess_returns, errors='coerce')
-    
+
     # The 'y' term is defined as excess returns squared minus the second moment (variance)
     M2 = np.array(Moments['M2'])[:,1].astype(float)
     y = excess_returns_t ** 2 - M2
-    
+
     # Compute the residuals for equation (64)
     residuals_64 = y - alpha2 - LB2_t
-    
+
     return residuals_64
 
 def equation_65(params, Q_matrix, R_f, excess_returns, ret, dates_Q_overall, Moments):
     tau, rho, kappa, alpha1, alpha2, alpha3 = params
 
     params_LB = [tau, rho, kappa]
-    
+
     # Calculate the model-implied lower bound of expected excess returns
     LB3_t_df = calculate_time_varying_LBU3(Q_matrix, params_LB, R_f, dates_Q_overall)
     LB3_t = LB3_t_df['Lower_Bound']
-    
+
     # Ensure excess_returns_t is numeric
     excess_returns_t = pd.to_numeric(excess_returns, errors='coerce')
-    
+
     # The 'y' term is defined as excess returns cubed minus the third moment (M3)
     M3 = np.array(Moments['M3'])[:,1].astype(float)
     y = excess_returns_t ** 3 - M3
-    
+
     # Compute the residuals for equation (65)
     residuals = y - alpha3 - LB3_t
-    
+
     return residuals
 
 def calculate_time_varying_LBR(Q_matrix, R_f, dates_Q_overall=Q_matrix.columns[1:], ret=np.arange(-1, 1.01, 0.01)):
@@ -394,7 +394,7 @@ def estimate_preference_parameters_in_LBU(Q_matrix, params0, R_f, excess_returns
 
         tau, rho, kappa, alpha1, alpha2, alpha3 = params
         params_LBU = [tau, rho, kappa]
-        
+
         # Calculate the lower bound
         LBU = calculate_time_varying_LBU(Q_matrix, params_LBU, R_f, dates_Q_overall, ret)
 
@@ -403,7 +403,7 @@ def estimate_preference_parameters_in_LBU(Q_matrix, params0, R_f, excess_returns
         residual65 = equation_65(params, Q_matrix, R_f, excess_returns, ret, dates_Q_overall, Moments)
 
         return np.sum(residual63 ** 2 * weight63 + residual64 **2 * weight64 + residual65 ** 2 * weight65)
-    
+
     # Equal weights
     weights = [w/3 for w in [1, 1, 1]]
 
@@ -433,7 +433,7 @@ def estimate_preference_parameters_in_LBU(Q_matrix, params0, R_f, excess_returns
 
     fitness = result_2nd.fun
     print(f"The fitness of the second step is {fitness}")
-    
+
     return params
 
 # The gross risk-free rate, set to 1 because it is defined by simple return plus one
@@ -447,7 +447,7 @@ M2_array = np.array(Moments['M2'])[:,1].astype(float)
 M3_array = np.array(Moments['M3'])[:,1].astype(float)
 M4_array = np.array(Moments['M4'])[:,1].astype(float)
 
-# Estimate params using two-step nonlinear least squares 
+# Estimate params using two-step nonlinear least squares
 # Set initial values for the parameters
 tau = 0.97 # risk tolerance
 rho = 2.32 # skewness preference
@@ -458,7 +458,7 @@ alpha3 = 9.2e-5
 
 params = [tau, rho, kappa, alpha1, alpha2, alpha3]
 weights = [w/3 for w in [1, 1, 1]]
-params_estimated = estimate_preference_parameters_in_LBU(Q_matrix, params, R_f, excess_returns, 
+params_estimated = estimate_preference_parameters_in_LBU(Q_matrix, params, R_f, excess_returns,
                                                Moments,
                                                np.arange(-1, 1.01, 0.01),
                                                dates_Q_overall)
@@ -467,7 +467,7 @@ tau = params_estimated[0]
 rho = params_estimated[1]
 kappa = params_estimated[2]
 params = [tau, rho, kappa]
-    
+
 # Calculate the unrestricted lower bounds using Eq. (27) in Chabi-Yo & Loudis (2020)
 LBU = calculate_time_varying_LBU(Q_matrix, params, R_f, dates_Q_overall)
 LBU["Lower_Bound"] = LBU["Lower_Bound"] / ttm * 365

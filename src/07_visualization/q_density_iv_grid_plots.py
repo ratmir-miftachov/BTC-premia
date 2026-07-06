@@ -56,7 +56,7 @@ def get_Q_density_for_date_tau(date_str, tau, Q_data_dir, grid_full):
                 except Exception as e:
                     print(f"Interpolation error in {file}: {e}")
                     return None
-                norm_factor = np.trapezoid(Q_interp, grid_full)
+                norm_factor = np.trapz(Q_interp, grid_full)
                 if norm_factor > 0:
                     Q_interp /= norm_factor
                 return Q_interp

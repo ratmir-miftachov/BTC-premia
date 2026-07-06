@@ -1,0 +1,40 @@
+name: Reproducibility checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile Python sources
+        run: |
+          python -m py_compile scripts/*.py src/utils/*.py src/02_iv_estimation/*.py src/03_q_density/*.py src/04_clustering/*.py src/05_risk_analysis/*.py src/06_volatility/*.py src/07_visualization/*.py
+
+      - name: Validate fixture manifest
+        run: |
+          python scripts/check_reproducibility.py --manifest tests/fixtures/data_manifest.yaml --base-path tests/fixtures --strict
+
+      - name: Inspect full workflow
+        run: |
+          python scripts/run_full_pipeline.py --dry-run --steps all
+
+      - name: Run smoke tests
+        run: |
+          python -m unittest discover -s tests
+
+      - name: Check for local absolute paths
+        run: |
+          ! grep -RInE '/Users|/home|H:|C:|os\.chdir' scripts src --include='*.py' --include='*.m'

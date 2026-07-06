@@ -7,6 +7,7 @@ The codebase is a mixed Python and MATLAB research artifact. The repository does
 ## Repository Structure
 
 - `config/parameters.yaml`: shared parameter values for filtering, SVI estimation, clustering, risk-premium analysis, and output formatting.
+- `config/data_manifest.yaml`: machine-readable input/output contract for reproducibility checks.
 - `scripts/run_full_pipeline.py`: workflow inspection CLI. It lists known stages, reports required inputs, and fails clearly for manual or blocked stages instead of logging fake success.
 - `src/01_data_preprocessing`: MATLAB summary-statistics scripts for option data.
 - `src/02_iv_estimation`: Python SVI estimation, IV-surface construction, and maturity interpolation scripts.
@@ -27,7 +28,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Several stages also require MATLAB. Q-density estimation additionally depends on an R bridge (`rpy2`) and the missing `src/Q_from_IV.R` routine. Optional analysis extras such as notebooks, UMAP, and Plotly are documented in `requirements.txt`.
+Several stages also require MATLAB. Q-density estimation additionally depends on an R bridge (`rpy2`) and the missing `src/Q_from_IV.R` routine. Optional analysis extras such as notebooks, UMAP, and Plotly are documented in `requirements.txt`. `requirements.lock` records the Python 3.10 baseline used for reproducibility checks.
 
 ## Data
 
@@ -47,10 +48,12 @@ Inspect the current workflow map:
 
 ```bash
 python scripts/run_full_pipeline.py --list-steps
+python scripts/run_full_pipeline.py --steps validate
 python scripts/run_full_pipeline.py --dry-run --steps all
+python scripts/check_reproducibility.py --manifest config/data_manifest.yaml
 ```
 
-The pipeline helper currently documents the workflow and validates missing inputs. It does not run the full paper pipeline automatically because several stages are manual MATLAB workflows or require ignored/private data. Running without `--dry-run` will fail clearly when selected stages are blocked or manual.
+The pipeline helper can run the automated validation stage and documents the remaining workflow. It does not run the full paper pipeline automatically because several stages are manual MATLAB workflows or require ignored/private data. Running without `--dry-run` will fail clearly when selected stages are blocked or manual.
 
 High-level stages:
 
@@ -66,5 +69,17 @@ High-level stages:
 
 - The README now reflects actual file names in the repository rather than planned or historical names.
 - Python scripts no longer require editing machine-local absolute paths before use; use repo-relative defaults or `BTC_PREMIA_BASE`.
+- Stochastic scripts expose deterministic seeds where currently supported. Use `--seed` for `svi_tau_dependent_estimation.py` and `BTC_PREMIA_RANDOM_SEED` for UMAP plots.
+- Generated Python outputs can write JSON provenance sidecars with input hashes, parameters, Python version, platform, and package versions.
 - MATLAB scripts are preserved as paper-analysis scripts. Some still expect historical folder names and should be run manually with the required data layout.
 - The conservative cleanup removed only an empty, unreferenced placeholder file from `docs/`.
+
+## Smoke Tests
+
+The `tests/fixtures` directory contains tiny synthetic data files for validation only. Run:
+
+```bash
+python -m unittest discover -s tests
+```
+
+to check manifest parsing, fixture CSV parsing, and a miniature Q-matrix clustering flow.
