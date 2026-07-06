@@ -5,17 +5,18 @@ import pandas as pd
 import os
 from scipy.stats.mstats import gmean
 from matplotlib.colors import ListedColormap
+from pathlib import Path
 # ========================================================================================================
 #data preprocessing, dimensionality reduction using UMAP, and visualization of results in 2D and 3D.
 # ========================================================================================================
 
-path="/Users/ratmir/Desktop/Clustering Zijin"
-os.chdir(path)
+BASE_DIR = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
+Q_MATRIX_DIR = BASE_DIR / "Q_matrix" / "Tau-independent" / "unique" / "moneyness_step_0d01"
 # Load the .csv files into Pandas DataFrames
-df1 = pd.read_csv('Q_matrix_5day_0d15.csv')
-df2 = pd.read_csv('Q_matrix_9day_0d15.csv')
-df3 = pd.read_csv('Q_matrix_14day_0d15.csv')
-df4 = pd.read_csv('Q_matrix_27day_0d15.csv')
+df1 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_5day_0d15.csv')
+df2 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_9day_0d15.csv')
+df3 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_14day_0d15.csv')
+df4 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_27day_0d15.csv')
 
 #Transformation
 def clr(x):
@@ -119,7 +120,6 @@ ax.set_ylabel('UMAP 2')
 ax.set_zlabel('UMAP 3')
 ax.set_title(f'n_neighbors: {100}, min_dist: {0.2}', fontsize=16)
 plt.show()
-
 
 
 

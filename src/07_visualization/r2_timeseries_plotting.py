@@ -4,12 +4,12 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 # ====== STEP 1: Load and preprocess your market data ======
-path = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/"
-os.chdir(path)
+base_dir = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
 
-data_path = os.path.join(path, "SVI", "v1", "svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv")
+data_path = os.path.join(base_dir, "SVI", "v1", "svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv")
 df = pd.read_csv(data_path)
 
 # Convert 'Date' column to actual datetime format
@@ -45,7 +45,7 @@ plt.grid(True)
 plt.xticks(rotation=45)
 plt.tight_layout()
 
-path_to_save = os.path.join(path, "SVI", "v1", "fitness", "R2_TimeSeries")
+path_to_save = os.path.join(base_dir, "SVI", "v1", "fitness", "R2_TimeSeries")
 os.makedirs(path_to_save, exist_ok=True)
 plt.savefig(os.path.join(path_to_save, "r2_ts_by_day_Tau-Ind_Mon-Uni.png"))
 
@@ -71,7 +71,7 @@ plt.grid(True)
 plt.xticks(rotation=45)
 plt.tight_layout()
 
-path_to_save = os.path.join(path, "SVI", "v1", "fitness", "R2_by_tau")
+path_to_save = os.path.join(base_dir, "SVI", "v1", "fitness", "R2_by_tau")
 os.makedirs(path_to_save, exist_ok=True)
 plt.savefig(os.path.join(path_to_save, "r2_by_tau_Tau-Ind_Mon-Uni.png"))
 
@@ -79,4 +79,3 @@ plt.show()
 
 # Print results
 print("Average R2 for tau = 27: ", average_r2_by_tau.loc[25])
-

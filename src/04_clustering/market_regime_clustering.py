@@ -14,6 +14,7 @@ from scipy.cluster.hierarchy import cut_tree
 from scipy.spatial import distance_matrix
 import matplotlib.pyplot as plt
 from cycler import cycler
+from pathlib import Path
 
 # =======================================================
 # Load the Q vectors and find common columns
@@ -25,14 +26,13 @@ default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 new_colors = ['#000000', '#0000FF', '#FF0000'] + default_colors[3:]
 # Set the new property cycle
 plt.rcParams['axes.prop_cycle'] = cycler(color=new_colors)
-#path="/Users/ratmir/Desktop/Clustering Zijin New"
-path="/Users/ratmir/Desktop/Clustering Zijin"
-os.chdir(path)
+BASE_DIR = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
+Q_MATRIX_DIR = BASE_DIR / "Q_matrix" / "Tau-independent" / "unique" / "moneyness_step_0d01"
 # Load the Q vectors from the four different time-to-maturity (ttm) periods
-df1 = pd.read_csv('Q_matrix_5day_0d15.csv') # delete 20180610, 20181118
-df2 = pd.read_csv('Q_matrix_9day_0d15.csv')
-df3 = pd.read_csv('Q_matrix_14day_0d15.csv')
-df4 = pd.read_csv('Q_matrix_27day_0d15.csv')
+df1 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_5day_0d15.csv') # delete 20180610, 20181118
+df2 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_9day_0d15.csv')
+df3 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_14day_0d15.csv')
+df4 = pd.read_csv(Q_MATRIX_DIR / 'Q_matrix_27day_0d15.csv')
 # Get the column names from each DataFrame
 columns1 = list(df1.columns)[1:]
 columns2 = list(df2.columns)[1:]

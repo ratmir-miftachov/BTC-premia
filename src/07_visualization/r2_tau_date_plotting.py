@@ -5,12 +5,12 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
 
 # ====== STEP 1: Load and preprocess your market data ======
-path = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/"
-os.chdir(path)
+base_dir = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
 
-data_path = os.path.join(path, "SVI", "v1", "svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv")
+data_path = os.path.join(base_dir, "SVI", "v1", "svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv")
 df = pd.read_csv(data_path)
 
 # Convert 'Date' column to actual datetime format
@@ -69,10 +69,9 @@ x_tick_positions = [heatmap_data.columns.get_loc(str(year) + '-01-01') for year 
 
 plt.xticks(ticks=x_tick_positions, labels=unique_years, rotation=45)
 
-path_to_save = os.path.join(path, "SVI", "v1", "fitness")
+path_to_save = os.path.join(base_dir, "SVI", "v1", "fitness")
 os.makedirs(path_to_save, exist_ok=True)
 plt.savefig(os.path.join(path_to_save, "r2_heatmap_by_day_Tau-Ind_Mon-Uni.png"))
 
 plt.show()
-
 

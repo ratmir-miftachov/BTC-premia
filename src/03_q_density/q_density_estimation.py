@@ -3,11 +3,15 @@
 import os
 import pandas as pd
 import numpy as np
-from src.quandl_data import get_btc_prices_2015_2022
 import rpy2.robjects.packages as rpackages
 from rpy2 import robjects
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+R_SOURCE_PATH = PROJECT_ROOT / "src" / "Q_from_IV.R"
 
 def estimate_Q(log_ret, IV, dIVdr, d2IVdr2, rf, tau, r_obj, out_dir):                            
     try:
@@ -98,7 +102,7 @@ def process_file(file, ttm, out_path, interest_rate_data, iv_dir):
     try:
         from rpy2 import robjects
         r_obj = robjects.r
-        r_obj.source('src/Q_from_IV.R')
+        r_obj.source(str(R_SOURCE_PATH))
     except Exception as e:
         return f"Error initializing R in file {file}: {e}"
     
@@ -115,16 +119,15 @@ def process_file(file, ttm, out_path, interest_rate_data, iv_dir):
     return f"Successfully processed file {file} for date {date}"
 
 def run_parallel_processing():
-    base_path = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/"
-    os.chdir(base_path)
+    base_path = Path(os.environ.get("BTC_PREMIA_BASE", PROJECT_ROOT)).expanduser()
     
     # Load interest rate data once
-    interest_rate_data = pd.read_csv(os.path.join('Data', 'IR_daily.csv'))
+    interest_rate_data = pd.read_csv(base_path / 'Data' / 'IR_daily.csv')
     interest_rate_data = interest_rate_data.rename(columns={'index': 'date', 'DTB3': 'interest_rate'})
     interest_rate_data['interest_rate'] = interest_rate_data['interest_rate'] / 100
     
-    iv_dir = os.path.join(base_path, 'IV', 'IV_surface_SVI', 'Tau-independent', 'unique', 'moneyness_step_0d01')
-    out_path = os.path.join(base_path, 'Q_from_pure_SVI', 'Tau-independent', 'unique', 'moneyness_step_0d01')
+    iv_dir = base_path / 'IV' / 'IV_surface_SVI' / 'Tau-independent' / 'unique' / 'moneyness_step_0d01'
+    out_path = base_path / 'Q_from_pure_SVI' / 'Tau-independent' / 'unique' / 'moneyness_step_0d01'
     
     files = sorted([f for f in os.listdir(iv_dir) if f.endswith(".csv")])
     ttm_list = range(3, 121)

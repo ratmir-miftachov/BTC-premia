@@ -31,12 +31,12 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from scipy.optimize import minimize
+from pathlib import Path
 
-base_dir = "/Users/irtg/Documents/同步空间/Pricing_Kernel/EPK/SVI_independent_tau/"
-os.chdir(base_dir)
+base_dir = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
 
 ttm = 27
-Q_matrix_path = f"Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_{ttm}day.csv"
+Q_matrix_path = base_dir / f"Q_matrix/Tau-independent/unique/moneyness_step_0d01/Q_matrix_{ttm}day.csv"
 Q_matrix = pd.read_csv(Q_matrix_path)
 
 def moments_Q_density(date_Q, Q_matrix, ttm=27, ret=np.arange(-1, 1.01, 0.01)):
@@ -112,7 +112,7 @@ def calculate_time_varying_moments(Q_matrix, dates_Q=Q_matrix.columns[1:], ret=n
     return {'M1':M1, 'M2':M2, 'M3':M3, 'M4':M4, 'M5':M5, 'M6':M6}
 
 # Load daily price data
-BTC_daily_price_path = "Data/BTC_USD_Quandl_2011_2023.csv"
+BTC_daily_price_path = base_dir / "Data" / "BTC_USD_Quandl_2011_2023.csv"
 daily_price = pd.read_csv(BTC_daily_price_path, parse_dates=['Date'], dayfirst=False)
 
 # Sort and filter the daily price data
@@ -120,7 +120,7 @@ daily_price = daily_price.sort_values(by='Date')
 daily_price = daily_price[(daily_price['Date'] <= '2022-12-31') & (daily_price['Date'] >= '2014-01-01')]
 
 # Load the common dates of the multivariate clustering
-common_dates_path = "Clustering/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/common_dates_cluster.csv"
+common_dates_path = base_dir / "Clustering" / "Tau-independent" / "unique" / "moneyness_step_0d01" / "multivariate_clustering_9_27_45" / "common_dates_cluster.csv"
 common_dates = pd.read_csv(common_dates_path)
 
 dates_Q = {}
@@ -531,7 +531,7 @@ plt.tight_layout()
 plt.legend(fontsize=12)
 
 # Save the plot
-lower_bound_plot_path = "Lower_Bound/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/Martin_Chabi-Yo_RLB_Preference_LB.png"
+lower_bound_plot_path = base_dir / "Lower_Bound" / "Tau-independent" / "unique" / "moneyness_step_0d01" / "multivariate_clustering_9_27_45" / "Martin_Chabi-Yo_RLB_Preference_LB.png"
 os.makedirs(os.path.dirname(lower_bound_plot_path), exist_ok=True)
 plt.savefig(lower_bound_plot_path, dpi=300, bbox_inches='tight')
 
@@ -539,9 +539,10 @@ plt.savefig(lower_bound_plot_path, dpi=300, bbox_inches='tight')
 plt.show()
 
 # Save the lower bounds in csv
-MB.to_csv("Lower_Bound/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/Martin_LB.csv", index=False)
-LBU.to_csv("Lower_Bound/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/Chabi-Yo_ULB.csv", index=False)
-LBR.to_csv("Lower_Bound/Tau-independent/unique/moneyness_step_0d01/multivariate_clustering_9_27_45/Chabi-Yo_RLB.csv", index=False)
+lower_bound_dir = base_dir / "Lower_Bound" / "Tau-independent" / "unique" / "moneyness_step_0d01" / "multivariate_clustering_9_27_45"
+MB.to_csv(lower_bound_dir / "Martin_LB.csv", index=False)
+LBU.to_csv(lower_bound_dir / "Chabi-Yo_ULB.csv", index=False)
+LBR.to_csv(lower_bound_dir / "Chabi-Yo_RLB.csv", index=False)
 
 # Show the details of lower bounds
 print(f"Q first moment: {np.average(np.array(Moments['M1'])[:,1].astype(float))}")
@@ -594,4 +595,3 @@ summary_df = pd.DataFrame({
 })
 
 print(summary_df)
-

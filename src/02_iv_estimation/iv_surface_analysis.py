@@ -7,14 +7,15 @@ import pandas as pd
 import numpy as np
 import re
 from joblib import Parallel, delayed
+from pathlib import Path
 
-# Set the working directory
-path = "/Users/irtg/Documents/Github/BTC-premia/SVI_independent_tau/"
-os.chdir(path)
+BASE_DIR = Path(os.environ.get("BTC_PREMIA_BASE", Path(__file__).resolve().parents[2])).expanduser()
+SVI_DIR = BASE_DIR / "SVI" / "v1"
+OUTPUT_DIR = BASE_DIR / "IV" / "IV_SVI" / "Tau-independent" / "unique" / "moneyness_step_0d01"
 
 # Read in the SVI estimation results
-df1 = pd.read_csv('SVI/v1/svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv')
-df2 = pd.read_csv('SVI/v1/svi_Tau-Ind_Mon-Uni_paras.csv')
+df1 = pd.read_csv(SVI_DIR / 'svi_Tau-Ind_Mon-Uni_iv_and_r2_results.csv')
+df2 = pd.read_csv(SVI_DIR / 'svi_Tau-Ind_Mon-Uni_paras.csv')
 
 # Process paras DataFrame (align indices and rename columns)
 paras = df2.loc[df1.index].copy()
@@ -28,7 +29,7 @@ def svi_model_ind(theta, k):
     return a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + sigma ** 2))
 
 # This function processes a single date.
-def process_date(date_val, paras, ttms, k_new):
+def process_date(date_val, paras, ttms, k_new, output_dir):
     # Extract the date string (e.g., "2020-09-23") from the file name
     Date = re.search(r'(\d{4}-\d{2}-\d{2})', date_val).group(0)
     print(f"Estimate IV for date {Date}.")
@@ -64,8 +65,8 @@ def process_date(date_val, paras, ttms, k_new):
     
     # Sort and write the IV surface for this date to CSV
     all_IVs = all_IVs.sort_values(by=['Date', 'TTM'])
-    output_path = f'IV/IV_SVI/Tau-independent/unique/moneyness_step_0d01/interpolated_{Date}_allR2.csv'
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_path = output_dir / f'interpolated_{Date}_allR2.csv'
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     all_IVs.to_csv(output_path, index=False)
     return all_IVs
 
@@ -79,11 +80,11 @@ print("Files to process:", unique_dates)
 
 # Process each date in parallel using Joblib
 all_IVs_list = Parallel(n_jobs=-2)(
-    delayed(process_date)(date_val, paras, ttms, k_new) for date_val in unique_dates
+    delayed(process_date)(date_val, paras, ttms, k_new, OUTPUT_DIR) for date_val in unique_dates
 )
 
 # Optionally, concatenate all the individual DataFrames into one master DataFrame and write to CSV
 all_IVs_concat = pd.concat(all_IVs_list, ignore_index=True)
-output_path_all = 'IV/IV_SVI/Tau-independent/unique/moneyness_step_0d01/interpolated_all_dates_allR2.csv'
-os.makedirs(os.path.dirname(output_path_all), exist_ok=True)
+output_path_all = OUTPUT_DIR / 'interpolated_all_dates_allR2.csv'
+output_path_all.parent.mkdir(parents=True, exist_ok=True)
 all_IVs_concat.to_csv(output_path_all, index=False)
